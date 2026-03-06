@@ -41,6 +41,7 @@ export function mergeReports(
     denied += report.denied;
     for (const pkg of report.packages) {
       packages.push({ ...pkg, source });
+      if (severityRank(pkg.risk) > severityRank(risk)) risk = pkg.risk;
     }
   }
 
@@ -85,10 +86,18 @@ export async function processReport(
   core.summary.addRaw(renderSummary(report));
   await core.summary.write();
 
+  // Effective risk = max of report-level and all package-level risks
+  let effectiveRisk = report.risk;
+  for (const pkg of report.packages) {
+    if (severityRank(pkg.risk) > severityRank(effectiveRisk)) {
+      effectiveRisk = pkg.risk;
+    }
+  }
+
   // Fail the workflow if threshold met
-  if (meetsThreshold(report.risk, failSeverity)) {
+  if (meetsThreshold(effectiveRisk, failSeverity)) {
     core.setFailed(
-      `Audit failed: overall risk "${report.risk}" meets the fail-on-severity threshold "${failSeverity}"`,
+      `Audit failed: overall risk "${effectiveRisk}" meets the fail-on-severity threshold "${failSeverity}"`,
     );
   }
 }
@@ -100,12 +109,20 @@ export function renderSummary(report: LockfileResponse): string {
   const status = report.allow ? "\u2705" : "\u274C";
   const lines: string[] = [];
 
+  // Effective risk = max of report-level and all package-level risks
+  let effectiveRisk: Severity = report.risk;
+  for (const pkg of report.packages) {
+    if (severityRank(pkg.risk) > severityRank(effectiveRisk)) {
+      effectiveRisk = pkg.risk;
+    }
+  }
+
   lines.push(`## ${status} safe-pkgs Audit Results\n`);
   lines.push(
     `| Metric | Value |`,
     `|--------|-------|`,
     `| Overall | ${report.allow ? "Pass" : "Fail"} |`,
-    `| Risk | ${report.risk} |`,
+    `| Risk | ${effectiveRisk} |`,
     `| Total packages | ${report.total} |`,
     `| Denied packages | ${report.denied} |`,
     "",

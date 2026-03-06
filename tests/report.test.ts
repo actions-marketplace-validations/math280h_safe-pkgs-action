@@ -180,6 +180,28 @@ describe("mergeReports", () => {
     expect(merged.risk).toBe("High");
   });
 
+  it("takes highest risk from package-level even if report-level is low", () => {
+    const merged = mergeReports([
+      {
+        source: "a",
+        report: makeReport({
+          risk: "Low",
+          packages: [
+            {
+              name: "vuln-pkg",
+              requested: "1.0.0",
+              allow: false,
+              risk: "High",
+              reasons: ["CVE"],
+              evidence: [],
+            },
+          ],
+        }),
+      },
+    ]);
+    expect(merged.risk).toBe("High");
+  });
+
   it("sets allow to false if any report denies", () => {
     const merged = mergeReports([
       { source: "a", report: makeReport({ allow: true }) },
