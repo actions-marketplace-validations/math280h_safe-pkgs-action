@@ -202,6 +202,28 @@ describe("mergeReports", () => {
     expect(merged.risk).toBe("High");
   });
 
+  it("normalizes lowercase risk from safe-pkgs binary", () => {
+    const merged = mergeReports([
+      {
+        source: "a",
+        report: makeReport({
+          risk: "low" as any,
+          packages: [
+            {
+              name: "vuln-pkg",
+              requested: "1.0.0",
+              allow: false,
+              risk: "high" as any,
+              reasons: ["CVE"],
+              evidence: [],
+            },
+          ],
+        }),
+      },
+    ]);
+    expect(merged.risk).toBe("High");
+  });
+
   it("sets allow to false if any report denies", () => {
     const merged = mergeReports([
       { source: "a", report: makeReport({ allow: true }) },

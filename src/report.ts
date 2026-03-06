@@ -3,8 +3,12 @@ import type { LockfileResponse, Severity } from "./types.js";
 
 const SEVERITY_ORDER: Severity[] = ["Low", "Medium", "High", "Critical"];
 
-function severityRank(s: Severity): number {
-  return SEVERITY_ORDER.indexOf(s);
+function normalizeSeverity(s: string): Severity {
+  return (s.charAt(0).toUpperCase() + s.slice(1).toLowerCase()) as Severity;
+}
+
+function severityRank(s: Severity | string): number {
+  return SEVERITY_ORDER.indexOf(normalizeSeverity(s));
 }
 
 /**
@@ -20,9 +24,6 @@ export function meetsThreshold(reportRisk: Severity, failOn: string): boolean {
 
 /**
  * Merge multiple audit reports into a single aggregate report.
- */
-/**
- * Merge multiple audit reports into a single aggregate report.
  * Each report's packages are tagged with the source lockfile path.
  */
 export function mergeReports(
@@ -36,12 +37,14 @@ export function mergeReports(
 
   for (const { source, report } of reports) {
     if (!report.allow) allow = false;
-    if (severityRank(report.risk) > severityRank(risk)) risk = report.risk;
+    if (severityRank(report.risk) > severityRank(risk))
+      risk = normalizeSeverity(report.risk);
     total += report.total;
     denied += report.denied;
     for (const pkg of report.packages) {
       packages.push({ ...pkg, source });
-      if (severityRank(pkg.risk) > severityRank(risk)) risk = pkg.risk;
+      if (severityRank(pkg.risk) > severityRank(risk))
+        risk = normalizeSeverity(pkg.risk);
     }
   }
 
@@ -87,10 +90,10 @@ export async function processReport(
   await core.summary.write();
 
   // Effective risk = max of report-level and all package-level risks
-  let effectiveRisk = report.risk;
+  let effectiveRisk: Severity = normalizeSeverity(report.risk);
   for (const pkg of report.packages) {
     if (severityRank(pkg.risk) > severityRank(effectiveRisk)) {
-      effectiveRisk = pkg.risk;
+      effectiveRisk = normalizeSeverity(pkg.risk);
     }
   }
 
@@ -110,10 +113,10 @@ export function renderSummary(report: LockfileResponse): string {
   const lines: string[] = [];
 
   // Effective risk = max of report-level and all package-level risks
-  let effectiveRisk: Severity = report.risk;
+  let effectiveRisk: Severity = normalizeSeverity(report.risk);
   for (const pkg of report.packages) {
     if (severityRank(pkg.risk) > severityRank(effectiveRisk)) {
-      effectiveRisk = pkg.risk;
+      effectiveRisk = normalizeSeverity(pkg.risk);
     }
   }
 
